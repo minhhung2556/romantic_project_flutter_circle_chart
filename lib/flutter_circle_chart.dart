@@ -2,14 +2,28 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_circle_chart/math/index.dart';
 
+// const _kDegToRad = math.pi / 180.0;
+// const _kRadToDeg = 180.0 / math.pi;
+const _kTotalRad = 2 * math.pi;
+const _kSelectedItemFactor = 1.3;
+
+/// The data is used to draw the [CircleChart]
+/// Each item has [CircleChartItemData.value] and the [CircleChart] will calculate total value itself and display as a label.
 class CircleChartItemData {
+  /// [color] : color to draw.
   final Color color;
+
+  /// [value] : value to calculate its part of the [CircleChart].
   final double value;
+
+  /// [name] : is used to call each item.
   final String name;
+
+  /// [description] : Item description is used to describe more details each item.
   final String description;
 
+  /// Constructor
   CircleChartItemData({
     required this.color,
     required this.value,
@@ -18,6 +32,11 @@ class CircleChartItemData {
   });
 }
 
+/// Drawing types of [CircleChart]
+/// [CircleChartType.solid] draws items in solid colors.
+/// [CircleChartType.gradient] draws items in gradients from their [CircleChartItemData.color] darker to their origin color.
+/// [CircleChartType.bracelet] like as gradient, but it come from the center, make the chart like a bracelet.
+/// [CircleChartType.dots] draws items in dots with their [CircleChartItemData.color].
 enum CircleChartType {
   solid,
   gradient,
@@ -25,26 +44,55 @@ enum CircleChartType {
   dots,
 }
 
+/// Help you create a Circle Chart that is used to display some kinds of reports.
 class CircleChart extends StatefulWidget {
+  /// [backgroundColor] : the background of whole widget.
   final Color backgroundColor;
-  final Radius borderRadius;
-  final EdgeInsets padding;
-  final Duration duration;
 
+  /// [borderRadius] : the border radius of whole widget.
+  final Radius borderRadius;
+
+  /// [padding] : the padding of whole widget.
+  final EdgeInsets padding;
+
+  /// [duration] : use for the animation, triggered whenever the [items] changes or not by [animationOnItemsChanged].
+  final Duration duration;
+  final bool animationOnItemsChanged;
+
+  /// [chartRadius] : radius to draw the circle.
   final double chartRadius;
+
+  /// [chartType] : drawing type. See all [CircleChartType].
   final CircleChartType chartType;
+
+  /// [chartStrokeWidth] : stroke width of the item value circle.
   final double chartStrokeWidth;
+
+  /// [chartCircleBackgroundStrokeWidth] : stroke width of the dark circle behind the item value circle.
   final double chartCircleBackgroundStrokeWidth;
 
+  /// See [labelTextStyle]
   final Radius labelBorderRadius;
+
+  /// See [labelTextStyle]
   final EdgeInsets labelPadding;
+
+  /// The label is used to show the total value and selected item value to focus on. [labelTextStyle] is used for Text. [labelBorderRadius] & [labelPadding] are used for the label background.
   final TextStyle labelTextStyle;
 
+  /// [items] : is the data to draw.
   final List<CircleChartItemData> items;
+
+  /// [itemPadding] : is the padding of each item placed at the right.
   final EdgeInsets itemPadding;
+
+  /// [itemTextStyle] : is the text style of each item placed at the right.
   final TextStyle itemTextStyle;
+
+  /// [itemDescriptionTextStyle] : is the text style of description label of each item placed at the bottom of item label.
   final TextStyle itemDescriptionTextStyle;
 
+  /// Create an CircleChart. It has a default style.
   const CircleChart({
     Key? key,
     this.backgroundColor: const Color(0xff32074e),
@@ -69,6 +117,7 @@ class CircleChart extends StatefulWidget {
     this.chartCircleBackgroundStrokeWidth: 20,
     this.itemPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     this.duration: const Duration(milliseconds: 600),
+    this.animationOnItemsChanged: true,
   }) : super(key: key);
 
   @override
@@ -77,32 +126,34 @@ class CircleChart extends StatefulWidget {
 
 class _CircleChartState extends State<CircleChart>
     with SingleTickerProviderStateMixin {
-  CircleChartItemData? checkedItem;
-  late AnimationController animationController;
+  CircleChartItemData? _selectedItem;
+  late AnimationController _animationController;
 
   @override
   void initState() {
-    animationController =
+    _animationController =
         AnimationController(vsync: this, duration: widget.duration);
-    animationController.addListener(() {
+    _animationController.addListener(() {
       setState(() {});
     });
-    startAnimation();
+    _startAnimation();
     super.initState();
   }
 
   @override
   void didUpdateWidget(covariant CircleChart oldWidget) {
-    if (oldWidget.items != widget.items) {
-      checkedItem = null;
-      startAnimation();
+    if (widget.animationOnItemsChanged) {
+      if (oldWidget.items != widget.items) {
+        _selectedItem = null;
+        _startAnimation();
+      }
     }
     super.didUpdateWidget(oldWidget);
   }
 
   @override
   void dispose() {
-    animationController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -118,15 +169,15 @@ class _CircleChartState extends State<CircleChart>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CustomPaint(
-            painter: CircleChartPainter(
+            painter: _CircleChartPainter(
               items: widget.items,
               chartType: widget.chartType,
               chartRadius: widget.chartRadius,
               strokeWidth: widget.chartStrokeWidth,
               circleStrokeWidth: widget.chartCircleBackgroundStrokeWidth,
               animationValue: CurveTween(curve: Curves.easeInOutCirc)
-                  .evaluate(animationController),
-              checkedItem: checkedItem,
+                  .evaluate(_animationController),
+              selectedItem: _selectedItem,
             ),
             size: Size(widget.chartRadius * 2, widget.chartRadius * 2),
           ),
@@ -145,10 +196,10 @@ class _CircleChartState extends State<CircleChart>
                       decoration: BoxDecoration(
                         borderRadius:
                             BorderRadius.all(widget.labelBorderRadius),
-                        color: checkedItem?.color ?? Colors.black54,
+                        color: _selectedItem?.color ?? Colors.black54,
                       ),
                       child: Text(
-                        '${(checkedItem != null ? checkedItem!.value : _calculateTotalValue(widget.items)).toStringAsFixed(2)}',
+                        '${(_selectedItem != null ? _selectedItem!.value : _calculateTotalValue(widget.items)).toStringAsFixed(2)}',
                         style: widget.labelTextStyle,
                       ),
                     ),
@@ -170,10 +221,10 @@ class _CircleChartState extends State<CircleChart>
     return ElevatedButton(
       onPressed: () {
         setState(() {
-          if (checkedItem != item || checkedItem == null) {
-            checkedItem = item;
+          if (_selectedItem != item || _selectedItem == null) {
+            _selectedItem = item;
           } else {
-            checkedItem = null;
+            _selectedItem = null;
           }
         });
       },
@@ -212,7 +263,7 @@ class _CircleChartState extends State<CircleChart>
               ),
             ],
           ),
-          if (checkedItem == item)
+          if (_selectedItem == item)
             Padding(
               padding: EdgeInsets.only(top: widget.itemPadding.top),
               child: Text(
@@ -225,28 +276,28 @@ class _CircleChartState extends State<CircleChart>
     );
   }
 
-  void startAnimation() {
-    animationController.forward(from: 0.1);
+  void _startAnimation() {
+    _animationController.forward(from: 0.1);
   }
 }
 
-class CircleChartPainter extends CustomPainter {
+class _CircleChartPainter extends CustomPainter {
   final double chartRadius;
   final List<CircleChartItemData> items;
   final CircleChartType chartType;
   final double strokeWidth;
   final double circleStrokeWidth;
   final double animationValue;
-  final CircleChartItemData? checkedItem;
+  final CircleChartItemData? selectedItem;
 
-  const CircleChartPainter({
+  const _CircleChartPainter({
     required this.chartRadius,
     required this.items,
     required this.chartType,
     required this.strokeWidth,
     required this.circleStrokeWidth,
     this.animationValue: 1.0,
-    this.checkedItem,
+    this.selectedItem,
   });
 
   @override
@@ -255,7 +306,7 @@ class CircleChartPainter extends CustomPainter {
     final radius = chartRadius - circleStrokeWidth * 0.5;
     final totalValue = _calculateTotalValue(items);
     // final count = items.length;
-    final totalRad = animationValue * 2 * math.pi;
+    final totalRad = animationValue * _kTotalRad;
     double startAngle = 0;
 
     /// draw circle background
@@ -282,7 +333,8 @@ class CircleChartPainter extends CustomPainter {
               sweepAngle,
               false,
               Paint()
-                ..strokeWidth = strokeWidth * (checkedItem == item ? 1.5 : 1)
+                ..strokeWidth = strokeWidth *
+                    (selectedItem == item ? _kSelectedItemFactor : 1)
                 ..strokeCap = StrokeCap.round
                 ..strokeJoin = StrokeJoin.round
                 ..style = PaintingStyle.stroke
@@ -311,7 +363,8 @@ class CircleChartPainter extends CustomPainter {
               sweepAngle,
               false,
               Paint()
-                ..strokeWidth = strokeWidth * (checkedItem == item ? 1.5 : 1)
+                ..strokeWidth = strokeWidth *
+                    (selectedItem == item ? _kSelectedItemFactor : 1)
                 ..strokeCap = StrokeCap.round
                 ..strokeJoin = StrokeJoin.round
                 ..style = PaintingStyle.stroke
@@ -339,7 +392,8 @@ class CircleChartPainter extends CustomPainter {
             sweepAngle,
             false,
             Paint()
-              ..strokeWidth = strokeWidth * (checkedItem == item ? 1.5 : 1)
+              ..strokeWidth = strokeWidth *
+                  (selectedItem == item ? _kSelectedItemFactor : 1)
               ..strokeCap = StrokeCap.round
               ..strokeJoin = StrokeJoin.round
               ..style = PaintingStyle.stroke
@@ -370,7 +424,9 @@ class CircleChartPainter extends CustomPainter {
           for (var i = 0; i < count; ++i) {
             canvas.drawCircle(
                 c,
-                strokeWidth * 0.5 * (checkedItem == item ? 1.5 : 1),
+                strokeWidth *
+                    0.5 *
+                    (selectedItem == item ? _kSelectedItemFactor : 1),
                 Paint()
                   ..color = item.color
                   ..style = PaintingStyle.fill
@@ -392,7 +448,8 @@ class CircleChartPainter extends CustomPainter {
               false,
               Paint()
                 ..color = item.color
-                ..strokeWidth = strokeWidth * (checkedItem == item ? 1.5 : 1)
+                ..strokeWidth = strokeWidth *
+                    (selectedItem == item ? _kSelectedItemFactor : 1)
                 ..strokeCap = StrokeCap.round
                 ..strokeJoin = StrokeJoin.round
                 ..style = PaintingStyle.stroke);
@@ -408,6 +465,7 @@ class CircleChartPainter extends CustomPainter {
   }
 }
 
+/// calculate total value
 double _calculateTotalValue(List<CircleChartItemData> items) {
   double a = 0;
   for (var item in items) {
@@ -417,21 +475,22 @@ double _calculateTotalValue(List<CircleChartItemData> items) {
 }
 
 extension _ColorEx on Color {
+  /// build a color darker from its origin.
   get darker => Color.alphaBlend(this.withOpacity(0.5), Colors.black);
 }
 
 extension _OffsetEx on Offset {
+  /// rotate a point by a [alphaRad] around a circle that has the [center] point.
   Offset rotate(Offset center, double alphaRad) {
     if (alphaRad == double.infinity || alphaRad == double.negativeInfinity)
       return this;
     // print('rotate: $center, $alphaRad');
-    AffineTransform t = AffineTransform.identity();
-    var p = Point(dx, dy);
-    t
-      ..rotate(alphaRad * kRadToDeg, Point(center.dx, center.dy))
-      ..apply(p);
-    var res = Offset(p.x, p.y);
-    // print('rotate: res=$res');
-    return res;
+    var matrix = Matrix4.identity()..translate(-center.dx, -center.dy);
+    var p = MatrixUtils.transformPoint(matrix, this);
+    matrix = Matrix4.identity()..rotateZ(alphaRad);
+    p = MatrixUtils.transformPoint(matrix, p);
+    matrix = Matrix4.identity()..translate(center.dx, center.dy);
+    p = MatrixUtils.transformPoint(matrix, p);
+    return p;
   }
 }

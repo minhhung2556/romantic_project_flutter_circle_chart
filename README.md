@@ -1,6 +1,6 @@
 # Flutter Circle Chart
 
-A Flutter package to create a Circle Chart with multiple types. It will be useful for your awesome app.
+A Flutter package to create a Circle Chart with multiple drawing types. It will be useful for your awesome app.
 
 ![Demo](./demo.gif)
 
