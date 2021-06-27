@@ -1,0 +1,17 @@
+name: flutter_circle_chart
+description: A Flutter package to create a Circle Chart with multiple types. It will be useful for your awesome app.
+version: 1.0.0
+homepage: https://romanticdeveloper.com
+repository: https://github.com/minhhung2556/romantic_project_flutter_circle_chart.git
+
+environment:
+  sdk: '>=2.12.0 <3.0.0'
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
